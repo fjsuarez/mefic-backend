@@ -5,6 +5,7 @@ from typing import List, Dict, Optional
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from services.auth_service import verify_firebase_token
 from services.stock_service import StockService
+import logging
 
 router = APIRouter(
     prefix="/user-portfolio",
@@ -13,6 +14,9 @@ router = APIRouter(
 )
 
 security = HTTPBearer()
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Models for request/response
 class PortfolioStock(BaseModel):
@@ -27,19 +31,34 @@ class UserPortfolio(BaseModel):
 @router.get("/", response_model=UserPortfolio)
 async def get_user_portfolio(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Get the current user's portfolio"""
-    # Verify token and get user ID
-    user_id = await verify_firebase_token(credentials.credentials)
-    
-    # Access Firestore
-    db = firestore.client()
-    portfolio_ref = db.collection('portfolios').document(user_id)
-    portfolio = portfolio_ref.get()
-    
-    if not portfolio.exists:
-        # Return empty portfolio if none exists
-        return UserPortfolio(stocks=[])
-    
-    return UserPortfolio(stocks=portfolio.to_dict().get('stocks', []))
+    try:
+        logger.info("Portfolio request received")
+        
+        # Check if credentials are provided
+        if not credentials:
+            logger.error("No credentials provided")
+            raise HTTPException(status_code=401, detail="No credentials provided")
+            
+        logger.info(f"Authorization header received with token length: {len(credentials.credentials)}")
+        
+        # Verify token and get user ID
+        user_id = await verify_firebase_token(credentials.credentials)
+        
+        logger.info(f"Fetching portfolio for user: {user_id}")
+        # Access Firestore
+        db = firestore.client()
+        portfolio_ref = db.collection('portfolios').document(user_id)
+        portfolio = portfolio_ref.get()
+        
+        if not portfolio.exists:
+            logger.info(f"No portfolio found for user: {user_id}, returning empty portfolio")
+            return UserPortfolio(stocks=[])
+        
+        logger.info(f"Successfully retrieved portfolio for user: {user_id}")
+        return UserPortfolio(stocks=portfolio.to_dict().get('stocks', []))
+    except Exception as e:
+        logger.error(f"Error in get_user_portfolio: {str(e)}")
+        raise
 
 @router.post("/", response_model=UserPortfolio)
 async def update_user_portfolio(

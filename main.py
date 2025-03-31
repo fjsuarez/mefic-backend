@@ -4,6 +4,9 @@ from fastapi.security import OpenIdConnect
 import firebase_admin
 from routes import stocks, financial, technical, risk, portfolio, user_portfolio
 from models import ErrorResponse
+import logging
+
+logger = logging.getLogger(__name__)
 
 if not firebase_admin._apps:
     cred = firebase_admin.credentials.Certificate("credentials.json")
@@ -47,3 +50,15 @@ app.include_router(technical.router)
 app.include_router(risk.router)
 app.include_router(portfolio.router)
 app.include_router(user_portfolio.router)
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    """Log request details for debugging"""
+    logger.info(f"Request path: {request.url.path}")
+    logger.info(f"Request method: {request.method}")
+    logger.info(f"Request headers: {request.headers.get('authorization', 'None')[:15]}...")
+    
+    response = await call_next(request)
+    
+    logger.info(f"Response status: {response.status_code}")
+    return response
