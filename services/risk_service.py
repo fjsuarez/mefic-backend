@@ -14,22 +14,30 @@ class RiskService:
             # Calculate volatility (annualized)
             volatility = returns.std() * np.sqrt(252)
             
-            # Calculate beta (against TASI - Saudi index)
-            # First, get the market returns
-            market = yf.download('^TASI', 
-                                start=df.index[0], 
-                                end=df.index[-1])
-            market_returns = market['Close'].pct_change().dropna()
-            
-            # Match the dates
-            common_dates = returns.index.intersection(market_returns.index)
-            stock_returns_aligned = returns.loc[common_dates]
-            market_returns_aligned = market_returns.loc[common_dates]
-            
-            # Calculate beta
-            covariance = stock_returns_aligned.cov(market_returns_aligned)
-            market_variance = market_returns_aligned.var()
-            beta = covariance / market_variance
+            try:
+                # Try to get the market returns (TASI - Saudi index)
+                market = yf.download('^TASI', 
+                                    start=df.index[0], 
+                                    end=df.index[-1])
+                
+                if not market.empty:
+                    market_returns = market['Close'].pct_change().dropna()
+                    
+                    # Match the dates
+                    common_dates = returns.index.intersection(market_returns.index)
+                    stock_returns_aligned = returns.loc[common_dates]
+                    market_returns_aligned = market_returns.loc[common_dates]
+                    
+                    # Calculate beta
+                    covariance = stock_returns_aligned.cov(market_returns_aligned)
+                    market_variance = market_returns_aligned.var()
+                    beta = covariance / market_variance
+                else:
+                    # Fallback if market data is empty
+                    beta = 1.0  # Neutral beta as fallback
+            except Exception:
+                # Fallback if market data fails to download
+                beta = 1.0  # Neutral beta as fallback
             
             # Calculate Sharpe Ratio (assuming risk-free rate of 0.02 or 2%)
             risk_free_rate = 0.02 / 252  # Daily risk-free rate
