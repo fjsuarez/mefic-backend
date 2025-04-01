@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OpenIdConnect
 import firebase_admin
-from routes import stocks, financial, technical, risk, portfolio, user_portfolio
+from routes import stocks, financial, technical, risk, portfolio, user_portfolio, screener
 from models import ErrorResponse
 import logging
 
@@ -50,6 +50,7 @@ app.include_router(technical.router)
 app.include_router(risk.router)
 app.include_router(portfolio.router)
 app.include_router(user_portfolio.router)
+app.include_router(screener.router)
 
 @app.middleware("http")
 async def log_requests(request, call_next):
